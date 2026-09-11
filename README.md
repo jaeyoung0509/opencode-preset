@@ -72,6 +72,7 @@ This is closer to Pi's "small core, composable extensions" philosophy and Codex-
 │   ├── plan.md
 │   └── review.md
 ├── agents/
+│   ├── preset-btw.md
 │   ├── preset-planner.md
 │   └── preset-reviewer.md
 ├── plugins/
@@ -81,7 +82,7 @@ This is closer to Pi's "small core, composable extensions" philosophy and Codex-
         └── SKILL.md
 ```
 
-`/goal` is installed through OpenCode's plugin CLI using `@prevalentware/opencode-goal-plugin` rather than vendoring the plugin.
+`preset-btw` is intentionally read-only and cannot edit files or launch nested subagents. `/goal` is installed through OpenCode's plugin CLI using `@prevalentware/opencode-goal-plugin` rather than vendoring the plugin.
 
 Existing files with the same names are backed up before replacement.
 
@@ -92,7 +93,7 @@ Existing files with the same names are backed up before replacement.
 | `/plan` | command + read-only subagent | planning benefits from fresh context and should not mutate code |
 | `/review` | command + read-only subagent | independent verification should not self-edit the implementation |
 | `/grill-me` | command + skill | the command is explicit UX; the detailed interview method is reusable on demand |
-| `/btw` | command + local plugin | background ephemeral sessions require lifecycle hooks |
+| `/btw` | command + local plugin + read-only agent | background ephemeral sessions require lifecycle hooks and should not mutate the project |
 | `/goal` | published plugin | durable state, compaction survival, evidence-gated completion, and idle continuation are stateful concerns |
 
 ## Project instructions
@@ -121,7 +122,7 @@ The uninstaller only moves the preset's known global files into a timestamped ba
 
 - No API keys, auth files, provider settings, or model settings belong in this repository.
 - Commands, agents, skills, and plugin prompts are English internally, but user prompts and command arguments can be written in any language.
-- `/btw` intentionally keeps its answer concise and does not allow the temporary session to edit project files.
+- `/btw` intentionally keeps its answer concise and runs through a read-only agent in a temporary session.
 
 ## License
 
