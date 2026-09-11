@@ -9,6 +9,7 @@ FILES=(
   "commands/grill-me.md"
   "commands/plan.md"
   "commands/review.md"
+  "agents/preset-btw.md"
   "agents/preset-planner.md"
   "agents/preset-reviewer.md"
   "skills/grill-me/SKILL.md"
@@ -29,7 +30,6 @@ for relative in "${FILES[@]}"; do
   removed=1
 done
 
-# Remove directories only when they became empty.
 rmdir "$CONFIG_DIR/skills/grill-me" 2>/dev/null || true
 rmdir "$CONFIG_DIR/skills" 2>/dev/null || true
 rmdir "$CONFIG_DIR/agents" 2>/dev/null || true
