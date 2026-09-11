@@ -12,6 +12,7 @@ FILES=(
   "commands/grill-me.md"
   "commands/plan.md"
   "commands/review.md"
+  "agents/preset-btw.md"
   "agents/preset-planner.md"
   "agents/preset-reviewer.md"
   "skills/grill-me/SKILL.md"
