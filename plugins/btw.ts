@@ -109,6 +109,7 @@ export const BtwPlugin = async ({ client }: any) => {
       if (!childID) throw new Error("OpenCode returned no child session id")
 
       const request: any = {
+        agent: "preset-btw",
         system: BTW_SYSTEM,
         parts: [
           {
