@@ -1,7 +1,7 @@
 ---
 description: Run an independent read-only review in a fresh subagent
 agent: preset-reviewer
-subtask: true
+subagent: true
 ---
 
 Review the current work independently.
