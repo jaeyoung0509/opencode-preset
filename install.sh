@@ -6,6 +6,8 @@ REF="${OPENCODE_PRESET_REF:-main}"
 BASE_URL="https://raw.githubusercontent.com/${REPO}/${REF}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 BACKUP_ROOT="$CONFIG_DIR/.preset-backups/$(date +%Y%m%d-%H%M%S)"
+ENV_BEGIN="# >>> opencode-preset background subagents >>>"
+ENV_END="# <<< opencode-preset background subagents <<<"
 
 FILES=(
   "commands/btw.md"
@@ -16,7 +18,6 @@ FILES=(
   "agents/preset-planner.md"
   "agents/preset-reviewer.md"
   "skills/grill-me/SKILL.md"
-  "plugins/btw.ts"
 )
 
 log() { printf 'opencode-preset: %s\n' "$*"; }
@@ -41,14 +42,60 @@ download() {
   log "installed $relative"
 }
 
+remove_legacy_btw_plugin() {
+  local legacy="$CONFIG_DIR/plugins/btw.ts"
+  [[ -e "$legacy" ]] || return 0
+
+  if grep -q "opencode-preset: managed" "$legacy" 2>/dev/null; then
+    local backup="$BACKUP_ROOT/plugins/btw.ts"
+    mkdir -p "$(dirname "$backup")"
+    mv "$legacy" "$backup"
+    log "removed legacy plugins/btw.ts (backup: $backup)"
+  else
+    warn "found $legacy but it is not managed by this preset; leaving it untouched"
+  fi
+}
+
+shell_rc() {
+  case "${SHELL##*/}" in
+    zsh) printf '%s' "$HOME/.zshrc" ;;
+    bash)
+      if [[ -f "$HOME/.bashrc" ]]; then printf '%s' "$HOME/.bashrc"; else printf '%s' "$HOME/.bash_profile"; fi
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+enable_background_subagents() {
+  local rc
+  if ! rc="$(shell_rc)"; then
+    warn "could not determine your shell rc file"
+    warn "start OpenCode with: OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode"
+    return 0
+  fi
+
+  touch "$rc"
+  if grep -Fq "$ENV_BEGIN" "$rc"; then
+    log "native background subagents already enabled in $rc"
+    return 0
+  fi
+
+  cat >> "$rc" <<EOF
+
+$ENV_BEGIN
+export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true
+$ENV_END
+EOF
+  log "enabled native background subagents in $rc"
+  log "open a new terminal (or run: source $rc) before starting OpenCode"
+}
+
 install_goal_plugin() {
   local package="@prevalentware/opencode-goal-plugin"
 
   if command -v opencode2 >/dev/null 2>&1; then
     log "installing $package with OpenCode 2"
-    if opencode2 plugin add "$package"; then
-      return 0
-    fi
+    if opencode2 plugin add "$package"; then return 0; fi
     warn "OpenCode 2 could not install the goal plugin automatically."
     warn "Run: opencode2 plugin add $package"
     return 0
@@ -56,15 +103,13 @@ install_goal_plugin() {
 
   if command -v opencode >/dev/null 2>&1; then
     log "installing $package globally with OpenCode"
-    if opencode plugin -g "$package"; then
-      return 0
-    fi
+    if opencode plugin -g "$package"; then return 0; fi
     warn "OpenCode could not install the goal plugin automatically."
     warn "Run: opencode plugin -g $package"
     return 0
   fi
 
-  warn "OpenCode CLI was not found; command, agent, skill, and /btw files were still installed."
+  warn "OpenCode CLI was not found; preset files were still installed."
   warn "After installing OpenCode, install $package to enable /goal."
 }
 
@@ -74,15 +119,17 @@ command -v curl >/dev/null 2>&1 || {
 }
 
 log "installing native OpenCode files into $CONFIG_DIR"
+remove_legacy_btw_plugin
 for file in "${FILES[@]}"; do
   download "$file"
 done
 
+enable_background_subagents
 install_goal_plugin
 
 printf '\n'
 log "done"
-log "restart OpenCode, then try: /plan, /review, /grill-me, /btw, /goal"
+log "restart your terminal and OpenCode, then try: /plan, /review, /grill-me, /btw, /goal"
 if [[ -d "$BACKUP_ROOT" ]]; then
   log "replaced files were backed up under $BACKUP_ROOT"
 fi
