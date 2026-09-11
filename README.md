@@ -1,14 +1,14 @@
 # opencode-preset
 
-A tiny, model-agnostic workflow preset for OpenCode.
+A tiny, model-agnostic workflow preset for OpenCode V2.
 
 It keeps the default OpenCode harness intact and adds only a handful of high-value workflows:
 
-- `/btw <question>` — dispatch a side question to a native background subagent while the main task keeps going
+- `/btw <question>` — run a side question in a background child session while the main task keeps going
 - `/goal <objective>` — keep a durable objective active until it is verified complete, blocked, paused, or cleared
 - `/grill-me [topic]` — interview the user one focused question at a time before implementation
-- `/review [scope]` — run an independent, read-only review in a fresh subagent
-- `/plan [task]` — build an implementation plan in an isolated, read-only planning subagent
+- `/review [scope]` — run an independent, read-only review in a fresh background subagent
+- `/plan [task]` — build an implementation plan in an isolated, read-only background subagent
 
 The preset deliberately avoids replacing OpenCode's orchestrator or hard-coding a model.
 
@@ -28,7 +28,13 @@ cd opencode-preset
 bash install.sh
 ```
 
-The installer enables OpenCode's native background-subagent feature in your shell rc file. Open a new terminal, then restart OpenCode.
+The installer enables OpenCode's background-subagent feature in your shell rc file. Because a child process cannot mutate its parent shell environment, run the following once in the terminal where you launch OpenCode, or open a brand-new terminal:
+
+```bash
+source ~/.zshrc
+```
+
+Then restart OpenCode.
 
 ## Usage
 
@@ -45,16 +51,16 @@ The installer enables OpenCode's native background-subagent feature in your shel
 
 This preset borrows a few durable ideas from strong coding-agent harnesses while staying intentionally small:
 
-1. **Native primitives first.** Commands, skills, Markdown agents, permissions, and OpenCode's own task/subagent machinery are preferred over custom orchestration.
-2. **Plugins only when behavior really needs durable state.** `/goal` uses a dedicated persistent goal plugin. `/btw` uses the native background task path instead of maintaining a custom session plugin.
-3. **Fresh context for independent work.** Planning, review, and side questions use separate subagents instead of bloating the primary conversation.
+1. **Native primitives first.** Commands, skills, Markdown agents, permissions, and OpenCode's own background command delegation are preferred over custom orchestration.
+2. **Plugins only when behavior really needs durable state.** `/goal` uses a dedicated persistent goal plugin. `/btw`, `/plan`, and `/review` use native command-level background subagents.
+3. **Fresh context for independent work.** Planning, review, and side questions use separate child sessions instead of bloating the primary conversation.
 4. **Separate planning from execution.** The planner cannot edit files and must produce concrete acceptance criteria and verification steps.
 5. **Independent verification.** The reviewer cannot edit files, reports findings before summaries, and treats repository evidence and observed behavior as stronger than implementation intent.
 6. **Progressive disclosure.** Detailed interview behavior lives in a skill and is loaded only when relevant.
 7. **Model agnostic by default.** Commands do not pin a provider or model, so the preset works with OpenCode Go, DeepSeek, Anthropic, OpenAI, and other configured providers.
 8. **Verification should be proportional.** Plans and reviews ask for the smallest meaningful checks rather than creating test work mechanically.
 
-This is closer to Pi's "small core, composable extensions" philosophy and Codex-style evidence/verification discipline than to a full replacement orchestration layer. It also takes the useful fresh-context specialist pattern seen in richer OpenCode and Pi setups without installing their entire harness.
+This is closer to Pi's small-core, composable-extension philosophy and Codex-style evidence/verification discipline than to a full replacement orchestration layer.
 
 ## What gets installed
 
@@ -82,38 +88,48 @@ export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true
 
 to your shell rc file inside a clearly marked block.
 
-`preset-btw` is intentionally read-only and cannot edit files or launch nested subagents. `/goal` is installed through OpenCode's plugin CLI using `@prevalentware/opencode-goal-plugin` rather than vendoring the plugin.
+All custom agents use OpenCode V2's `permissions` rule format. The side-question agent is read-only and cannot edit files, execute shell commands, ask interactive questions, or launch nested subagents.
+
+`/goal` is installed through OpenCode's plugin CLI using `@prevalentware/opencode-goal-plugin` rather than vendoring the plugin.
 
 Existing files with the same names are backed up before replacement.
+
+## Native background delegation
+
+OpenCode V2 commands support background delegation directly in command frontmatter:
+
+```yaml
+---
+agent: preset-btw
+subagent: true
+---
+```
+
+That means `/btw` does **not** ask the main model to call a task tool. OpenCode itself creates a background child session, leaves the parent session available, and reports the child result when it completes.
+
+`subtask: true` is the legacy V1 spelling. This preset uses the V2 `subagent: true` field.
+
+If background delegation is unavailable, verify the environment in the same terminal that launches OpenCode:
+
+```bash
+echo $OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS
+```
+
+It should print:
+
+```text
+true
+```
 
 ## Why each feature has a different shape
 
 | Feature | OpenCode primitive | Reason |
 | --- | --- | --- |
-| `/plan` | command + read-only subagent | planning benefits from fresh context and should not mutate code |
-| `/review` | command + read-only subagent | independent verification should not self-edit the implementation |
+| `/plan` | command + `subagent: true` + read-only agent | planning benefits from fresh context and should not mutate code |
+| `/review` | command + `subagent: true` + read-only agent | independent verification should not self-edit the implementation |
 | `/grill-me` | command + skill | the command is explicit UX; the detailed interview method is reusable on demand |
-| `/btw` | command + native background task + read-only subagent | side questions should run concurrently without blocking or mutating the project |
+| `/btw` | command + `subagent: true` + read-only agent | side questions should run concurrently without mutating the project |
 | `/goal` | published plugin | durable state, compaction survival, evidence-gated completion, and idle continuation are stateful concerns |
-
-## `/btw` behavior
-
-`/btw` asks the active agent to invoke OpenCode's `task` tool with:
-
-```text
-subagent_type: preset-btw
-background: true
-```
-
-The main session does not wait for the result. OpenCode injects the completed subagent result when it finishes.
-
-If `/btw` reports that background subagents are unavailable, start OpenCode after exporting:
-
-```bash
-export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true
-```
-
-The installer does this for future shells automatically.
 
 ## Project instructions
 
@@ -125,9 +141,10 @@ Run the installer again:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jaeyoung0509/opencode-preset/main/install.sh | bash
+source ~/.zshrc
 ```
 
-Then open a new terminal and restart OpenCode.
+Then restart OpenCode.
 
 ## Uninstall
 
@@ -143,7 +160,7 @@ The uninstaller only moves the preset's known global files into a timestamped ba
 
 - No API keys, auth files, provider settings, or model settings belong in this repository.
 - Commands, agents, skills, and prompts are English internally, but user prompts and command arguments can be written in any language.
-- `/btw` is deliberately read-only and uses OpenCode's native background subagent path.
+- The preset targets OpenCode V2 conventions.
 
 ## License
 
