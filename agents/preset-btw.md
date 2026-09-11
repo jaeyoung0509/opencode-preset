@@ -1,24 +1,37 @@
 ---
-description: Read-only side-question agent for ephemeral /btw sessions
+description: Read-only side-question agent for background /btw sessions
 mode: subagent
-permission:
-  edit: deny
-  external_directory: deny
-  task: deny
-  question: deny
-  bash:
-    "*": deny
-    "pwd": allow
-    "ls *": allow
-    "find *": allow
-    "rg *": allow
-    "git status*": allow
-    "git diff*": allow
-    "git log*": allow
-    "git show*": allow
-    "git ls-files*": allow
-  webfetch: allow
-  websearch: allow
+permissions:
+  - action: edit
+    resource: "*"
+    effect: deny
+  - action: shell
+    resource: "*"
+    effect: deny
+  - action: subagent
+    resource: "*"
+    effect: deny
+  - action: question
+    resource: "*"
+    effect: deny
+  - action: external_directory
+    resource: "*"
+    effect: deny
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: webfetch
+    resource: "*"
+    effect: allow
+  - action: websearch
+    resource: "*"
+    effect: allow
 ---
 
 Answer only the side question. You are intentionally read-only.
