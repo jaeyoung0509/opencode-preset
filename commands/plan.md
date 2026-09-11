@@ -1,7 +1,7 @@
 ---
 description: Build a read-only implementation plan in a fresh subagent
 agent: preset-planner
-subtask: true
+subagent: true
 ---
 
 Plan the following task without modifying files:
