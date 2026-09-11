@@ -6,8 +6,6 @@ REF="${OPENCODE_PRESET_REF:-main}"
 BASE_URL="https://raw.githubusercontent.com/${REPO}/${REF}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 BACKUP_ROOT="$CONFIG_DIR/.preset-backups/$(date +%Y%m%d-%H%M%S)"
-ENV_BEGIN="# >>> opencode-preset background subagents >>>"
-ENV_END="# <<< opencode-preset background subagents <<<"
 
 FILES=(
   "commands/btw.md"
@@ -56,38 +54,32 @@ remove_legacy_btw_plugin() {
   fi
 }
 
-shell_rc() {
-  case "${SHELL##*/}" in
-    zsh) printf '%s' "$HOME/.zshrc" ;;
-    bash)
-      if [[ -f "$HOME/.bashrc" ]]; then printf '%s' "$HOME/.bashrc"; else printf '%s' "$HOME/.bash_profile"; fi
-      ;;
-    *) return 1 ;;
-  esac
-}
-
-enable_background_subagents() {
+remove_legacy_background_env() {
+  local begin="# >>> opencode-preset background subagents >>>"
+  local end="# <<< opencode-preset background subagents <<<"
   local rc
-  if ! rc="$(shell_rc)"; then
-    warn "could not determine your shell rc file"
-    warn "start OpenCode with: OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode"
-    return 0
-  fi
 
-  touch "$rc"
-  if grep -Fq "$ENV_BEGIN" "$rc"; then
-    log "native background subagents already enabled in $rc"
-    return 0
-  fi
-
-  cat >> "$rc" <<EOF
-
-$ENV_BEGIN
-export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true
-$ENV_END
-EOF
-  log "enabled native background subagents in $rc"
-  log "open a new terminal (or run: source $rc) before starting OpenCode"
+  for rc in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile"; do
+    [[ -f "$rc" ]] || continue
+    python3 - "$rc" "$begin" "$end" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+begin, end = sys.argv[2], sys.argv[3]
+text = path.read_text()
+start = text.find(begin)
+if start == -1:
+    raise SystemExit(0)
+finish = text.find(end, start)
+if finish == -1:
+    raise SystemExit(0)
+finish += len(end)
+while finish < len(text) and text[finish] in "\r\n":
+    finish += 1
+new = text[:start].rstrip() + "\n" + text[finish:].lstrip("\r\n")
+path.write_text(new)
+PY
+  done
 }
 
 install_goal_plugin() {
@@ -120,16 +112,16 @@ command -v curl >/dev/null 2>&1 || {
 
 log "installing native OpenCode files into $CONFIG_DIR"
 remove_legacy_btw_plugin
+remove_legacy_background_env
 for file in "${FILES[@]}"; do
   download "$file"
 done
 
-enable_background_subagents
 install_goal_plugin
 
 printf '\n'
 log "done"
-log "restart your terminal and OpenCode, then try: /plan, /review, /grill-me, /btw, /goal"
+log "restart OpenCode, then try: /plan, /review, /grill-me, /btw, /goal"
 if [[ -d "$BACKUP_ROOT" ]]; then
   log "replaced files were backed up under $BACKUP_ROOT"
 fi
